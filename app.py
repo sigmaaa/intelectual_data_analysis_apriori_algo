@@ -17,8 +17,6 @@ DEFAULT_SUPPORT_LEVELS = [0.1, 0.05, 0.01, 0.005]
 DEFAULT_CONFIDENCE_LEVELS = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
 DEFAULT_TOP_ITEMS = 10
 
-# Support and confidence functions
-
 
 def supp(X, Y, transactions):
     total = len(transactions)
@@ -27,11 +25,22 @@ def supp(X, Y, transactions):
 
 
 def conf(X, Y, transactions):
-    supp_X = sum(1 for t in transactions if X.issubset(t)) / len(transactions)
+    supp_X = supp(X, set(), transactions)
     supp_XY = supp(X, Y, transactions)
     return supp_XY / supp_X if supp_X > 0 else 0.0
 
-# Simple 1-1 rules
+
+def lift(X, Y, transactions):
+    supp_X = supp(X, set(), transactions)
+    supp_Y = supp(Y, set(), transactions)
+    supp_XY = supp(X | Y, set(), transactions)
+    return supp_XY / (supp_X * supp_Y)
+
+
+def conv(X, Y, transactions):
+    supp_Y = supp(Y, set(), transactions)
+    conf_XY = conf(X, Y, transactions)
+    return (1-supp_Y)/(1-conf_XY)
 
 
 def generate_simple_rules(top_items):
@@ -44,8 +53,6 @@ def generate_simple_rules(top_items):
                 c = conf(X_set, Y_set, transactions)
                 rules.append((X, Y, s, c))
     return rules
-
-# Apriori full
 
 
 def apriori(transactions, min_support, min_confidence, top_n):
@@ -75,9 +82,8 @@ def apriori(transactions, min_support, min_confidence, top_n):
 
         candidate_counts = Counter()
         for t in filtered_transactions:
-            t_set = frozenset(t)
             for candidate in Ck:
-                if candidate.issubset(t_set):
+                if candidate.issubset(t):
                     candidate_counts[candidate] += 1
 
         Lk = [itemset for itemset, count in candidate_counts.items(
@@ -87,28 +93,28 @@ def apriori(transactions, min_support, min_confidence, top_n):
         L.append(Lk)
         k += 1
 
-    all_frequent_itemsets = [itemset for level in L for itemset in level]
     rules = []
-    for itemset in all_frequent_itemsets:
-        if len(itemset) < 2:
-            continue
-        for i in range(1, len(itemset)):
-            for antecedent in combinations(itemset, i):
-                antecedent = frozenset(antecedent)
-                consequent = itemset - antecedent
-                if not consequent:
-                    continue
-                s = supp(set(antecedent), set(
-                    consequent), filtered_transactions)
-                c = conf(set(antecedent), set(
-                    consequent), filtered_transactions)
-                if s >= min_support and c >= min_confidence:
-                    rules.append({
-                        "antecedent": ", ".join(sorted(antecedent)),
-                        "consequent": ", ".join(sorted(consequent)),
-                        "support": round(s, 4),
-                        "confidence": round(c, 4)
-                    })
+    for level in L:
+        for itemset in level:
+            if len(itemset) < 2:
+                continue
+            for i in range(1, len(itemset)):
+                for antecedent in combinations(itemset, i):
+                    antecedent = frozenset(antecedent)
+                    consequent = itemset - antecedent
+                    if not consequent:
+                        continue
+                    s = supp(set(antecedent), set(
+                        consequent), filtered_transactions)
+                    c = conf(set(antecedent), set(
+                        consequent), filtered_transactions)
+                    if s >= min_support and c >= min_confidence:
+                        rules.append({
+                            "antecedent": ", ".join(sorted(antecedent)),
+                            "consequent": ", ".join(sorted(consequent)),
+                            "support": round(s, 4),
+                            "confidence": round(c, 4)
+                        })
     return rules
 
 
@@ -157,6 +163,7 @@ app.layout = dbc.Container([
             {"name": "Support", "id": "support"},
             {"name": "Confidence", "id": "confidence"}
         ],
+        sort_action="native",
         page_size=10
     ),
 
@@ -179,6 +186,7 @@ app.layout = dbc.Container([
             {"name": "Support", "id": "support"},
             {"name": "Confidence", "id": "confidence"}
         ],
+        sort_action="native",
         page_size=10
     ),
 
