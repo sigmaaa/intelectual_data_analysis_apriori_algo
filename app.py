@@ -108,12 +108,18 @@ def apriori(transactions, min_support, min_confidence, top_n):
                         consequent), filtered_transactions)
                     c = conf(set(antecedent), set(
                         consequent), filtered_transactions)
+                    l = lift(set(antecedent), set(
+                        consequent), filtered_transactions)
+                    v = conv(set(antecedent), set(
+                        consequent), filtered_transactions)
                     if s >= min_support and c >= min_confidence:
                         rules.append({
                             "antecedent": ", ".join(sorted(antecedent)),
                             "consequent": ", ".join(sorted(consequent)),
                             "support": round(s, 4),
-                            "confidence": round(c, 4)
+                            "confidence": round(c, 4),
+                            "lift": round(l, 4),
+                            "conviction": round(v, 4)
                         })
     return rules
 
@@ -161,7 +167,7 @@ app.layout = dbc.Container([
             {"name": "Antecedent", "id": "antecedent"},
             {"name": "Consequent", "id": "consequent"},
             {"name": "Support", "id": "support"},
-            {"name": "Confidence", "id": "confidence"}
+            {"name": "Confidence", "id": "confidence"},
         ],
         sort_action="native",
         page_size=10
@@ -184,7 +190,9 @@ app.layout = dbc.Container([
             {"name": "Antecedent", "id": "antecedent"},
             {"name": "Consequent", "id": "consequent"},
             {"name": "Support", "id": "support"},
-            {"name": "Confidence", "id": "confidence"}
+            {"name": "Confidence", "id": "confidence"},
+            {"name": "Lift", "id": "lift"},
+            {"name": "Conviction", "id": "conviction"}
         ],
         sort_action="native",
         page_size=10
