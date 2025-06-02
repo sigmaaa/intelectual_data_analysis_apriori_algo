@@ -4,7 +4,8 @@ import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
 from itertools import combinations
 import pandas as pd
-from collections import Counter
+from collections import Counter, defaultdict
+from itertools import combinations
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -55,6 +56,20 @@ def generate_simple_rules(top_items):
     return rules
 
 
+def apriori_gen(L_prev, k):
+    Ck = set()
+    L_prev = list(L_prev)
+    for i in range(len(L_prev)):
+        for j in range(i + 1, len(L_prev)):
+            l1, l2 = sorted(L_prev[i]), sorted(L_prev[j])
+            if l1[:k-2] == l2[:k-2]:
+                candidate = frozenset(set(l1) | set(l2))
+                subsets = combinations(candidate, k - 1)
+                if all(frozenset(s) in L_prev for s in subsets):
+                    Ck.add(candidate)
+    return Ck
+
+
 def apriori(transactions, min_support, min_confidence, top_n):
     item_counts = Counter(item for t in transactions for item in t)
     top_items = [item for item, _ in item_counts.most_common(top_n)]
@@ -63,34 +78,27 @@ def apriori(transactions, min_support, min_confidence, top_n):
 
     num_transactions = len(filtered_transactions)
     item_counts = Counter(item for t in filtered_transactions for item in t)
-    L1 = [frozenset([item]) for item, count in item_counts.items()
-          if count / num_transactions >= min_support]
+    L1 = set(frozenset([item]) for item, count in item_counts.items()
+             if count / num_transactions >= min_support)
 
-    L = [L1]
+    L = []
+    Lk = L1
     k = 2
+    while Lk:
+        L.append(Lk)
+        Ck = apriori_gen(Lk, k)
+        candidate_counts = defaultdict(int)
 
-    while True:
-        prev_L = L[-1]
-        Ck = []
-        prev_L_list = list(prev_L)
-        for i in range(len(prev_L_list)):
-            for j in range(i + 1, len(prev_L_list)):
-                union_set = prev_L_list[i].union(prev_L_list[j])
-                if len(union_set) == k:
-                    Ck.append(union_set)
-        Ck = list(set(Ck))
-
-        candidate_counts = Counter()
         for t in filtered_transactions:
             for candidate in Ck:
                 if candidate.issubset(t):
                     candidate_counts[candidate] += 1
 
-        Lk = [itemset for itemset, count in candidate_counts.items(
-        ) if count / num_transactions >= min_support]
-        if not Lk:
-            break
-        L.append(Lk)
+        Lk = set()
+        for candidate, count in candidate_counts.items():
+            if count / num_transactions >= min_support:
+                Lk.add(candidate)
+
         k += 1
 
     rules = []
